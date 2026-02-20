@@ -94,6 +94,16 @@ const stageConfig = {
   },
 };
 
+const intentLexicon = {
+  budget: ["budget", "mensual", "paiement", "acompte", "financement", "argent"],
+  usage: ["utilisation", "usage", "kilométrage", "trajet", "route", "ville"],
+  vehicle: ["version", "moteur", "équipement", "caractéristique", "technologie", "sécurité"],
+  trust: ["garantie", "inspection", "fiabilité", "historique", "entretien"],
+  offer: ["offre", "prix", "rabais", "promotion", "frais", "taxe"],
+  close: ["signature", "contrat", "livraison", "date", "réserver", "prochaine étape"],
+  tradeIn: ["reprise", "échange", "ancien véhicule"],
+};
+
 const state = {
   persona: null,
   vehicleType: "neuve",
@@ -104,6 +114,7 @@ const state = {
     presentation: new Set(),
     closing: new Set(),
   },
+  discussedTopics: new Set(),
 };
 
 const personaSelect = document.getElementById("personaSelect");
@@ -121,6 +132,10 @@ const qualificationValue = document.getElementById("qualificationValue");
 const presentationValue = document.getElementById("presentationValue");
 const closingValue = document.getElementById("closingValue");
 const feedbackList = document.getElementById("feedbackList");
+
+function pick(options) {
+  return options[Math.floor(Math.random() * options.length)];
+}
 
 function init() {
   personaSelect.innerHTML = personas
@@ -167,6 +182,7 @@ function addMessage(role, text) {
 function resetConversation() {
   chatLog.innerHTML = "";
   state.messages = [];
+  state.discussedTopics = new Set();
   state.matched = {
     qualification: new Set(),
     presentation: new Set(),
@@ -185,6 +201,17 @@ function detectStageCoverage(text) {
       }
     });
   });
+}
+
+function detectIntents(message) {
+  const lower = message.toLowerCase();
+  const intents = Object.entries(intentLexicon)
+    .filter(([, keywords]) => keywords.some((keyword) => lower.includes(keyword)))
+    .map(([intent]) => intent);
+
+  intents.forEach((intent) => state.discussedTopics.add(intent));
+
+  return intents;
 }
 
 function scoreFor(stage) {
@@ -254,64 +281,134 @@ function generateFeedback(q, p, c, total) {
   return notes;
 }
 
-function replyToSalesMessage(message) {
-  const lower = message.toLowerCase();
-  const persona = state.persona;
-
-  if (lower.includes("bonjour") || lower.includes("bonsoir")) {
-    return `Bonjour, je suis ${persona.nom}. ${persona.situation} J'aimerais voir une voiture ${state.vehicleType}.`;
+function askFollowUpQuestion(persona, intents) {
+  if (intents.includes("budget")) {
+    return "Est-ce que vous pouvez me montrer deux scénarios de paiement pour comparer facilement?";
   }
 
-  if (
-    lower.includes("budget") ||
-    lower.includes("mensual") ||
-    lower.includes("paiement") ||
-    lower.includes("acompte")
-  ) {
-    return `Côté budget, ${persona.contraintes[0]}. Je veux surtout éviter de dépasser ce montant, même avec assurances et entretien.`;
+  if (intents.includes("vehicle")) {
+    return "Parmi les versions disponibles, laquelle serait la plus logique pour mon usage réel?";
   }
 
-  if (lower.includes("besoin") || lower.includes("utilisation") || lower.includes("kilométrage")) {
-    return `Mes besoins principaux sont : ${persona.objectifs.join(", ")}. Je veux une auto qui reste adaptée pendant plusieurs années.`;
+  if (intents.includes("offer") || intents.includes("close")) {
+    return "Si on s'entend aujourd'hui, pouvez-vous me résumer toutes les étapes jusqu'à la livraison?";
   }
 
-  if (lower.includes("garantie") || lower.includes("inspection") || lower.includes("fiabilité")) {
+  if (intents.includes("usage")) {
+    return "Selon mon rythme de conduite, vous iriez vers quelle motorisation et pourquoi?";
+  }
+
+  const notDiscussed = ["budget", "usage", "vehicle", "offer", "close"].filter(
+    (intent) => !state.discussedTopics.has(intent)
+  );
+
+  if (notDiscussed.length > 0) {
+    const next = notDiscussed[0];
+    if (next === "budget") {
+      return "Avant d'aller plus loin, j'aimerais clarifier le budget total mensuel, incluant les frais.";
+    }
+    if (next === "usage") {
+      return "Je veux être certain que le véhicule est adapté à mon utilisation au quotidien, vous pouvez valider ça avec moi?";
+    }
+    if (next === "vehicle") {
+      return `Quels équipements vous recommandez en priorité pour répondre à mes besoins: ${persona.objectifs.slice(0, 2).join(" et ")}?`;
+    }
+    if (next === "offer") {
+      return "Quand on parlera du prix, j'aurai besoin d'un détail transparent de chaque poste.";
+    }
+    if (next === "close") {
+      return "J'aimerais savoir les délais exacts et ce qu'il faut signer pour avancer.";
+    }
+  }
+
+  return pick([
+    "Pouvez-vous me conseiller franchement, comme si c'était pour vous?",
+    "Je veux éviter une mauvaise surprise après l'achat; qu'est-ce que je devrais vérifier en priorité?",
+    "Je suis ouvert, mais j'ai besoin d'arguments concrets pour prendre une décision aujourd'hui.",
+  ]);
+}
+
+function composeIntentAnswer(intent, persona) {
+  if (intent === "budget") {
+    return `Côté budget, ${persona.contraintes[0]}. Je veux une mensualité stable et prévisible.`;
+  }
+
+  if (intent === "usage") {
+    return `Mon usage principal tourne autour de ${persona.objectifs.slice(0, 2).join(" et ")}, donc je veux quelque chose de durable.`;
+  }
+
+  if (intent === "vehicle") {
+    return `Ce qui m'intéresse surtout: ${persona.preferences.join(", ")}. Si vous reliez ça à mon quotidien, ça m'aide beaucoup.`;
+  }
+
+  if (intent === "trust") {
     return state.vehicleType === "occasion"
-      ? "Pour une occasion, j'ai besoin d'un rapport d'inspection détaillé et d'un historique clair pour être rassuré."
-      : "Pour une neuve, je veux comprendre exactement la garantie de base et les options prolongées.";
+      ? "J'ai besoin d'un rapport d'inspection complet et d'un historique limpide pour avoir confiance."
+      : "Je veux comprendre la garantie de base, ses limites, puis les options prolongées pertinentes.";
   }
 
-  if (
-    lower.includes("caractéristique") ||
-    lower.includes("équipement") ||
-    lower.includes("sécurité") ||
-    lower.includes("technologie")
-  ) {
-    return `Ce qui compte le plus pour moi : ${persona.preferences.join(", ")}. Pouvez-vous me montrer clairement ce que la version inclut?`;
+  if (intent === "offer") {
+    return `${persona.objectionPrix} Je veux aussi un détail clair des frais avant toute signature.`;
   }
 
-  if (lower.includes("essai") || lower.includes("test") || lower.includes("conduire")) {
-    return "Oui, un essai routier est important pour moi. Je veux évaluer le confort, le bruit et la visibilité.";
+  if (intent === "close") {
+    return `${persona.closingSignal} Si vous m'expliquez les prochaines étapes simplement, je peux avancer.`;
   }
 
-  if (lower.includes("offre") || lower.includes("prix") || lower.includes("rabais")) {
-    return `${persona.objectionPrix} J'aimerais aussi que vous détailliez les frais avant signature.`;
+  if (intent === "tradeIn") {
+    return "J'ai un véhicule à échanger. Je veux une évaluation juste, avec une logique de marché claire.";
   }
 
-  if (
-    lower.includes("signature") ||
-    lower.includes("contrat") ||
-    lower.includes("réserver") ||
-    lower.includes("livraison")
-  ) {
-    return `${persona.closingSignal} J'aimerais revoir un résumé écrit avant de confirmer.`;
+  return "";
+}
+
+function fallbackSpontaneousReply(message, persona) {
+  const lastAgentMessages = state.messages
+    .filter((item) => item.role === "agent")
+    .slice(-3)
+    .map((item) => item.text)
+    .join(" ")
+    .toLowerCase();
+
+  const isQuestion = message.includes("?");
+
+  if (lastAgentMessages.includes("pourquoi") || lastAgentMessages.includes("expliquer")) {
+    return `Bonne question. Dans ma situation, je priorise ${persona.objectifs[0]} et ${persona.objectifs[1]}, donc j'ai besoin d'une recommandation vraiment justifiée.`;
   }
 
-  if (lower.includes("reprise") || lower.includes("échange")) {
-    return "J'ai un véhicule à échanger. Je veux une estimation réaliste basée sur le marché actuel.";
+  if (isQuestion) {
+    return `Je n'ai pas forcément tous les détails techniques, mais je peux vous dire ce qui compte pour moi: ${persona.preferences.slice(0, 2).join(" et ")}.`;
   }
 
-  return `Merci pour ces détails. J'apprécie quand vous prenez le temps d'aller en profondeur. De mon côté, mes priorités restent : ${persona.objectifs.join(", ")}.`;
+  return pick([
+    `Je vous suis, mais j'ai encore besoin d'être rassuré sur ${persona.objectifs[0]} avant de me décider.`,
+    "Merci, c'est clair jusqu'ici. Si vous me donnez un exemple concret, je vais me projeter plus facilement.",
+    "J'apprécie l'approche. Continuez avec des chiffres simples et je vais pouvoir comparer rapidement.",
+  ]);
+}
+
+function replyToSalesMessage(message) {
+  const persona = state.persona;
+  const intents = detectIntents(message);
+  const greeting = /\b(bonjour|bonsoir|salut)\b/i.test(message);
+
+  if (greeting) {
+    return `Bonjour, je suis ${persona.nom}. ${persona.situation} Je regarde actuellement une voiture ${state.vehicleType}.`;
+  }
+
+  if (intents.length === 0) {
+    const freeReply = fallbackSpontaneousReply(message, persona);
+    const followUp = askFollowUpQuestion(persona, intents);
+    return `${freeReply} ${followUp}`;
+  }
+
+  const parts = intents
+    .map((intent) => composeIntentAnswer(intent, persona))
+    .filter(Boolean)
+    .slice(0, 2);
+
+  const followUp = askFollowUpQuestion(persona, intents);
+  return `${parts.join(" ")} ${followUp}`;
 }
 
 startBtn.addEventListener("click", () => {

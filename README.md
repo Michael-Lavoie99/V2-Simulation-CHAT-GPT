@@ -5,7 +5,7 @@ Application web légère (HTML/CSS/JS) pour entraîner un représentant automobi
 ## Fonctionnalités
 
 - Plusieurs personnages clients avec des situations distinctes.
-- Conversation interactive représentant ↔ client IA.
+- Conversation interactive représentant ↔ client IA avec réponses spontanées et contextuelles, même sur des questions non prévues.
 - Évaluation du représentant sur **100%** avec 3 axes pondérés :
   - Qualification du client (40%)
   - Présentation du véhicule (35%)
@@ -26,7 +26,7 @@ Puis ouvrir : http://localhost:8000
 1. Sélectionner un personnage client.
 2. Choisir le type de véhicule (neuve/occasion).
 3. Démarrer la simulation.
-4. Poser des questions détaillées (budget, besoins, kilométrage, etc.).
+4. Poser des questions détaillées (budget, besoins, kilométrage, etc.) ou libres: le client IA répond de façon flexible.
 5. Présenter les caractéristiques du véhicule.
 6. Proposer une offre et conclure.
 7. Observer la note sur 100% et la rétroaction pour progresser.
