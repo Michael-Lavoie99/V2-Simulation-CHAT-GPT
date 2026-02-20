@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Simulation Vente Automobile - Client IA</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header>
+      <h1>Simulation de vente automobile</h1>
+      <p>
+        Entraînez-vous comme représentant : le client est simulé par ChatGPT avec des personnages
+        réalistes, puis obtenez une note sur 100%.
+      </p>
+    </header>
+
+    <main>
+      <section class="panel controls">
+        <h2>Configuration</h2>
+        <div class="row">
+          <label for="personaSelect">Personnage client</label>
+          <select id="personaSelect"></select>
+        </div>
+        <div class="row">
+          <label for="vehicleType">Type de véhicule présenté</label>
+          <select id="vehicleType">
+            <option value="neuve">Voiture neuve</option>
+            <option value="occasion">Voiture d'occasion</option>
+          </select>
+        </div>
+        <button id="startBtn">Démarrer la simulation</button>
+      </section>
+
+      <section class="panel persona" id="personaPanel">
+        <h2>Profil du client</h2>
+        <p id="personaSummary">Choisissez un personnage pour afficher son contexte.</p>
+      </section>
+
+      <section class="panel chat">
+        <h2>Conversation</h2>
+        <div id="chatLog" class="chat-log" aria-live="polite"></div>
+        <form id="messageForm" class="composer">
+          <textarea
+            id="salesInput"
+            placeholder="Posez une question de qualification, présentez un véhicule ou finalisez la vente…"
+            rows="3"
+            required
+          ></textarea>
+          <button type="submit">Envoyer</button>
+        </form>
+      </section>
+
+      <section class="panel score" id="scorePanel">
+        <h2>Évaluation du représentant</h2>
+        <p class="score-line">Score global : <strong id="globalScore">0%</strong></p>
+        <div class="progress-group">
+          <label>Qualification du client</label>
+          <progress id="qualificationScore" max="100" value="0"></progress>
+          <span id="qualificationValue">0%</span>
+        </div>
+        <div class="progress-group">
+          <label>Présentation du véhicule</label>
+          <progress id="presentationScore" max="100" value="0"></progress>
+          <span id="presentationValue">0%</span>
+        </div>
+        <div class="progress-group">
+          <label>Finalisation de la vente</label>
+          <progress id="closingScore" max="100" value="0"></progress>
+          <span id="closingValue">0%</span>
+        </div>
+        <h3>Rétroaction</h3>
+        <ul id="feedbackList"></ul>
+      </section>
+    </main>
+
+    <script src="app.js"></script>
+  </body>
+</html>
