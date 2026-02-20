@@ -1,7 +1,7 @@
 const personas = [
   {
     id: "famille",
-    nom: "Sophie Tremblay",
+    nom: "Sophia Tremblay",
     situation:
       "Mère de deux enfants, habite à Laval, utilise beaucoup la voiture pour école/sport. Budget mensuel serré.",
     objectifs: ["sécurité", "espace coffre", "coût d'entretien", "financement flexible"],
