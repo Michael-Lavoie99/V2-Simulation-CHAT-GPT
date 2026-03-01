@@ -115,6 +115,7 @@ const state = {
     closing: new Set(),
   },
   discussedTopics: new Set(),
+  personaDetails: null,
 };
 
 const personaSelect = document.getElementById("personaSelect");
@@ -135,6 +136,50 @@ const feedbackList = document.getElementById("feedbackList");
 
 function pick(options) {
   return options[Math.floor(Math.random() * options.length)];
+}
+
+function normalize(text) {
+  return text
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9\s]/g, " ");
+}
+
+function generatePersonaDetails(persona) {
+  const segmentsByPersona = {
+    famille: {
+      currentVehicles: ["Honda CR-V 2016", "Ford Escape 2015", "Hyundai Tucson 2017"],
+      replacementReasons: ["il commence à coûter cher en entretien", "l'espace devient juste pour les activités familiales"],
+      modelsInMind: ["RAV4", "CR-V", "CX-5"],
+      onlineSources: ["votre site et les fiches techniques", "les comparatifs sur YouTube et votre configurateur"],
+      usageDetail: ["beaucoup de trajets école-sport en semaine", "des sorties familiales la fin de semaine"],
+    },
+    professionnel: {
+      currentVehicles: ["Mazda6 2018", "Volkswagen Passat 2017", "Toyota Camry 2019"],
+      replacementReasons: ["je veux réduire ma consommation annuelle", "je veux plus d'aides à la conduite"],
+      modelsInMind: ["Camry hybride", "Accord hybride", "Kia K5"],
+      onlineSources: ["vos modèles en ligne et les brochures PDF", "les avis clients et vos vidéos de présentation"],
+      usageDetail: ["surtout de l'autoroute pour le travail", "des déplacements inter-villes fréquents"],
+    },
+    etudiant: {
+      currentVehicles: ["Toyota Yaris 2011", "Nissan Versa 2012", "Kia Rio 2013"],
+      replacementReasons: ["je veux quelque chose de plus fiable pour mes études et mon emploi", "les réparations deviennent imprévisibles"],
+      modelsInMind: ["Corolla", "Civic", "Mazda3"],
+      onlineSources: ["les annonces certifiées sur votre site", "les fiches d'occasion avec l'historique"],
+      usageDetail: ["trajets urbains et autoroute occasionnelle", "aller-retour université-travail"],
+    },
+  };
+
+  const segments = segmentsByPersona[persona.id] ?? segmentsByPersona.etudiant;
+  return {
+    currentVehicle: pick(segments.currentVehicles),
+    replacementReason: pick(segments.replacementReasons),
+    modelInMind: pick(segments.modelsInMind),
+    lookedOnline: true,
+    onlineSource: pick(segments.onlineSources),
+    usageDetail: pick(segments.usageDetail),
+  };
 }
 
 function init() {
@@ -188,6 +233,7 @@ function resetConversation() {
     presentation: new Set(),
     closing: new Set(),
   };
+  state.personaDetails = generatePersonaDetails(state.persona);
   feedbackList.innerHTML = "";
   refreshScore();
 }
@@ -281,6 +327,44 @@ function generateFeedback(q, p, c, total) {
   return notes;
 }
 
+function answerQualificationQuestion(message, persona) {
+  const normalized = normalize(message);
+  const details = state.personaDetails ?? generatePersonaDetails(persona);
+
+  const asksCurrentVehicleChange =
+    normalized.includes("changer votre vehicule") ||
+    (normalized.includes("vehicule actuel") && normalized.includes("changer"));
+
+  if (asksCurrentVehicleChange) {
+    return `Oui, je regarde pour changer mon véhicule actuel, un ${details.currentVehicle}, parce que ${details.replacementReason}.`;
+  }
+
+  const asksCurrentVehicle =
+    normalized.includes("vehicule actuel") || normalized.includes("que conduisez vous") || normalized.includes("quelle voiture avez vous");
+  if (asksCurrentVehicle) {
+    return `En ce moment je conduis un ${details.currentVehicle}, et je commence à penser au remplacement.`;
+  }
+
+  const asksModelInMind =
+    (normalized.includes("modele") && normalized.includes("en tete")) ||
+    (normalized.includes("de notre marque") && normalized.includes("modele")) ||
+    normalized.includes("quel modele");
+  if (asksModelInMind) {
+    return `Oui, dans votre marque j'avais surtout en tête le ${details.modelInMind}, mais je reste ouvert si vous avez une meilleure recommandation.`;
+  }
+
+  const asksOnlineResearch =
+    (normalized.includes("modele") && normalized.includes("en ligne")) ||
+    normalized.includes("regarde nos modeles") ||
+    normalized.includes("site web") ||
+    normalized.includes("configurateur");
+  if (asksOnlineResearch) {
+    return `Oui, j'ai regardé vos modèles en ligne, surtout ${details.onlineSource}. Ça m'a aidé à cibler ce qui me convient.`;
+  }
+
+  return "";
+}
+
 function askFollowUpQuestion(persona, intents) {
   if (intents.includes("budget")) {
     return "Est-ce que vous pouvez me montrer deux scénarios de paiement pour comparer facilement?";
@@ -329,12 +413,14 @@ function askFollowUpQuestion(persona, intents) {
 }
 
 function composeIntentAnswer(intent, persona) {
+  const details = state.personaDetails ?? generatePersonaDetails(persona);
+
   if (intent === "budget") {
     return `Côté budget, ${persona.contraintes[0]}. Je veux une mensualité stable et prévisible.`;
   }
 
   if (intent === "usage") {
-    return `Mon usage principal tourne autour de ${persona.objectifs.slice(0, 2).join(" et ")}, donc je veux quelque chose de durable.`;
+    return `Mon usage principal, c'est ${details.usageDetail}. Je veux donc quelque chose de durable et adapté.`;
   }
 
   if (intent === "vehicle") {
@@ -356,13 +442,14 @@ function composeIntentAnswer(intent, persona) {
   }
 
   if (intent === "tradeIn") {
-    return "J'ai un véhicule à échanger. Je veux une évaluation juste, avec une logique de marché claire.";
+    return `J'ai un véhicule à échanger (${details.currentVehicle}). Je veux une évaluation juste, avec une logique de marché claire.`;
   }
 
   return "";
 }
 
 function fallbackSpontaneousReply(message, persona) {
+  const details = state.personaDetails ?? generatePersonaDetails(persona);
   const lastAgentMessages = state.messages
     .filter((item) => item.role === "agent")
     .slice(-3)
@@ -377,7 +464,11 @@ function fallbackSpontaneousReply(message, persona) {
   }
 
   if (isQuestion) {
-    return `Je n'ai pas forcément tous les détails techniques, mais je peux vous dire ce qui compte pour moi: ${persona.preferences.slice(0, 2).join(" et ")}.`;
+    return pick([
+      `Je peux compléter: actuellement j'ai un ${details.currentVehicle} et je cherche mieux adapté à ${details.usageDetail}.`,
+      `Je n'ai pas tous les détails techniques, mais côté usage concret, ${details.usageDetail}, donc ${persona.preferences[0]} m'intéresse beaucoup.`,
+      `Si ça vous aide, j'avais le ${details.modelInMind} en tête au départ, mais je suis ouvert à vos conseils.`,
+    ]);
   }
 
   return pick([
@@ -394,6 +485,11 @@ function replyToSalesMessage(message) {
 
   if (greeting) {
     return `Bonjour, je suis ${persona.nom}. ${persona.situation} Je regarde actuellement une voiture ${state.vehicleType}.`;
+  }
+
+  const directQualificationAnswer = answerQualificationQuestion(message, persona);
+  if (directQualificationAnswer) {
+    return `${directQualificationAnswer} ${askFollowUpQuestion(persona, intents)}`;
   }
 
   if (intents.length === 0) {
